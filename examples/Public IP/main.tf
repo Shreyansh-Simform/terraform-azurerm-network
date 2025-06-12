@@ -1,3 +1,9 @@
+# First, create a resource group (you can use the Resource-Group module or create manually)
+resource "azurerm_resource_group" "resource_group" {
+  name     = var.ResourceGroupName
+  location = var.ResourceGroupLocation
+}
+
 module "complete_network" {
   source = ".."
 

@@ -7,12 +7,21 @@ resource "azurerm_virtual_network" "myvnet" {
   dns_servers         = var.dns_servers
 
   # Enable DDoS protection conditionally
-ddos_protection_plan {
+  ddos_protection_plan {
     id     = var.enable_ddos_protection ? (var.ddos_protection_plan_id != null ? var.ddos_protection_plan_id : azurerm_ddos_protection_plan.myddosplan[0].id) : null
-      enable = var.enable_ddos_protection
+    enable = var.enable_ddos_protection
   }
 
   tags = var.custom_tags
+
+  # Prevent accidental deletion of the VNet
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes = [
+      tags["Created"],
+      tags["LastModified"]
+    ]
+  }
 }
 
 #Azure DDoS Protection Plan Resource  
@@ -22,7 +31,10 @@ resource "azurerm_ddos_protection_plan" "myddosplan" {
   location            = var.rg_location
   resource_group_name = var.rg_name
   
- 
+  # Prevent accidental deletion
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 #Bastion-Based Resources
@@ -32,16 +44,19 @@ resource "azurerm_subnet" "bastion_subnet" {
   count                = var.enable_azure_bastion ? 1 : 0
   name                 = "AzureBastionSubnet"  # This name is required by Azure
   resource_group_name  = var.rg_name
-  virtual_network_name = var.virtual_network_name
+  virtual_network_name = azurerm_virtual_network.myvnet.name
   address_prefixes     = [var.bastion_subnet_prefix]
   
-  # Add validation to ensure subnet prefix is provided when bastion is enabled
+  # Add validation and dependency management
   lifecycle {
     precondition {
       condition     = !var.enable_azure_bastion || var.bastion_subnet_prefix != null
       error_message = "bastion_subnet_prefix must be provided when enable_azure_bastion is true."
     }
+    prevent_destroy = true
   }
+
+  depends_on = [azurerm_virtual_network.myvnet]
 }
 
 # Special public IP for Azure Bastion
@@ -54,7 +69,9 @@ resource "azurerm_public_ip" "bastion_pip" {
   sku                 = "Standard"
   zones               = var.bastion_availability_zones
   
-  
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 #Azure Bastion Host Resource
@@ -74,6 +91,14 @@ resource "azurerm_bastion_host" "bastion" {
   
   tags = var.custom_tags
   
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [
+    azurerm_subnet.bastion_subnet,
+    azurerm_public_ip.bastion_pip
+  ]
 }
 
 //Firewall-Based Resources
@@ -83,16 +108,19 @@ resource "azurerm_subnet" "firewall_subnet" {
   count                 = var.enable_azure_firewall ? 1 : 0
   name                  = "AzureFirewallSubnet"
   resource_group_name   = var.rg_name
-  virtual_network_name  = var.virtual_network_name
+  virtual_network_name  = azurerm_virtual_network.myvnet.name
   address_prefixes      = [var.firewall_subnet_address]
   
-  # Add validation to ensure subnet address is provided when firewall is enabled
+  # Add validation and dependency management
   lifecycle {
     precondition {
       condition     = !var.enable_azure_firewall || var.firewall_subnet_address != null
       error_message = "firewall_subnet_address must be provided when enable_azure_firewall is true."
     }
+    prevent_destroy = true
   }
+
+  depends_on = [azurerm_virtual_network.myvnet]
 }
  
 # Special subnet for Azure Firewall management
@@ -100,16 +128,19 @@ resource "azurerm_subnet" "management_subnet" {
   count                 = var.enable_azure_firewall ? 1 : 0
   name                  = "AzureFirewallManagementSubnet"
   resource_group_name   = var.rg_name
-  virtual_network_name  = var.virtual_network_name
+  virtual_network_name  = azurerm_virtual_network.myvnet.name
   address_prefixes      = [var.management_subnet_address]
   
-  # Add validation to ensure management subnet address is provided when firewall is enabled
+  # Add validation and dependency management
   lifecycle {
     precondition {
       condition     = !var.enable_azure_firewall || var.management_subnet_address != null
       error_message = "management_subnet_address must be provided when enable_azure_firewall is true."
     }
+    prevent_destroy = true
   }
+
+  depends_on = [azurerm_virtual_network.myvnet]
 }
  
 # Special public IP for Azure Firewall
@@ -122,6 +153,10 @@ resource "azurerm_public_ip" "firewall_pip" {
   sku                 = "Standard"
   
   tags = var.custom_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Separate public IP for management
@@ -134,7 +169,10 @@ resource "azurerm_public_ip" "firewall_management_pip" {
   sku                 = "Standard"
   
   tags = var.custom_tags
-  
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
  
 # Azure Firewall Resource
@@ -159,6 +197,17 @@ resource "azurerm_firewall" "firewall" {
   }
   
   tags = var.custom_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [
+    azurerm_subnet.firewall_subnet,
+    azurerm_subnet.management_subnet,
+    azurerm_public_ip.firewall_pip,
+    azurerm_public_ip.firewall_management_pip
+  ]
 }
 
 
@@ -174,7 +223,7 @@ resource "azurerm_subnet" "mysubnet" {
 
   name                 = each.key
   resource_group_name  = var.rg_name
-  virtual_network_name = var.virtual_network_name  
+  virtual_network_name = azurerm_virtual_network.myvnet.name
   address_prefixes     = each.value.address_prefixes
   
   # Conditional delegation block
@@ -189,8 +238,19 @@ resource "azurerm_subnet" "mysubnet" {
       }
     }
   }
-  service_endpoints = each.value.service_endpoints != null ? each.value.service_endpoints : [] //Specify null if you do not need service endpoints
-  private_endpoint_network_policies = each.value.private_endpoint_network_policies != null ? each.value.private_endpoint_network_policies : "Disabled" //Default to Disabled if not specified
+  service_endpoints = each.value.service_endpoints != null ? each.value.service_endpoints : []
+  private_endpoint_network_policies = each.value.private_endpoint_network_policies != null ? each.value.private_endpoint_network_policies : "Disabled"
+
+  # Prevent accidental deletion and ensure proper dependencies
+  lifecycle {
+    prevent_destroy = true
+    create_before_destroy = false
+    ignore_changes = [
+      # Ignore changes to service endpoints if they're managed externally
+    ]
+  }
+
+  depends_on = [azurerm_virtual_network.myvnet]
 }
 
 // Azure Route Table Resource
@@ -213,27 +273,53 @@ resource "azurerm_route_table" "network-route-table" {
   }
 
   tags = var.custom_tags
+
+  lifecycle {
+    prevent_destroy = true
+    create_before_destroy = false
+  }
 }  
+
 # Simple subnet-route table associations based on subnet's route_table field
 resource "azurerm_subnet_route_table_association" "route_table_associations" {
   for_each = {
     for subnet_name, subnet_config in var.subnets : subnet_name => subnet_config
-    if subnet_config.route_table != null
-  } //Checks if the route_table field is not null
+    if subnet_config.route_table != null && contains(keys(var.route_tables), subnet_config.route_table)
+  }
 
   subnet_id      = azurerm_subnet.mysubnet[each.key].id
-  route_table_id = azurerm_route_table.network-route-table[each.value.route_table].id //Specify route_table name in subnets variable
+  route_table_id = azurerm_route_table.network-route-table[each.value.route_table].id
+
+  # Ensure proper dependency order
+  depends_on = [
+    azurerm_subnet.mysubnet,
+    azurerm_route_table.network-route-table
+  ]
+
+  lifecycle {
+    create_before_destroy = false
+  }
 }
 
 # NSG-Subnet associations based on subnet's network_security_group field
 resource "azurerm_subnet_network_security_group_association" "nsg_associations" {
   for_each = {
     for subnet_name, subnet_config in var.subnets : subnet_name => subnet_config
-    if subnet_config.network_security_group != null
+    if subnet_config.network_security_group != null && contains(keys(var.network_security_groups), subnet_config.network_security_group)
   }
 
   subnet_id                 = azurerm_subnet.mysubnet[each.key].id
   network_security_group_id = azurerm_network_security_group.network-nsg[each.value.network_security_group].id
+
+  # Ensure proper dependency order
+  depends_on = [
+    azurerm_subnet.mysubnet,
+    azurerm_network_security_group.network-nsg
+  ]
+
+  lifecycle {
+    create_before_destroy = false
+  }
 }
 
 # Azure Network Security Group Resource
@@ -243,6 +329,7 @@ resource "azurerm_network_security_group" "network-nsg" {
   name                = each.key
   location            = var.rg_location
   resource_group_name = var.rg_name
+  
   dynamic "security_rule" {
     for_each = each.value.security_rules
     content {
@@ -257,7 +344,13 @@ resource "azurerm_network_security_group" "network-nsg" {
       destination_address_prefix = security_rule.value.destination_address_prefix
     }
   }
+  
   tags = var.custom_tags
+
+  lifecycle {
+    prevent_destroy = true
+    create_before_destroy = false
+  }
 }
 
 
@@ -265,7 +358,7 @@ resource "azurerm_network_security_group" "network-nsg" {
 resource "azurerm_public_ip" "my-pubip" {
   for_each = var.public_ip_name
   
-  name                = each.key  # Use map key as the name
+  name                = each.key
   resource_group_name = var.rg_name
   location            = var.rg_location
   allocation_method   = each.value.allocation_method
@@ -273,13 +366,18 @@ resource "azurerm_public_ip" "my-pubip" {
   ip_version          = each.value.ip_version
 
   tags = var.custom_tags
+
+  lifecycle {
+    prevent_destroy = true
+    create_before_destroy = false
+  }
 }
 
 # Azure Network Interface Resource
 resource "azurerm_network_interface" "mynic" {
   for_each = var.network_interfaces
   
-  name                         = each.key  # Use map key as the NIC name
+  name                         = each.key
   resource_group_name         = var.rg_name
   location                    = var.rg_location
   ip_forwarding_enabled       = each.value.enable_ip_forwarding
@@ -294,5 +392,19 @@ resource "azurerm_network_interface" "mynic" {
   }
   
   tags = var.custom_tags
+
+  lifecycle {
+    prevent_destroy = true
+    create_before_destroy = false
+    ignore_changes = [
+      # Ignore IP address changes for dynamic allocation
+      ip_configuration[0].private_ip_address
+    ]
+  }
+
+  depends_on = [
+    azurerm_subnet.mysubnet,
+    azurerm_public_ip.my-pubip
+  ]
 }
 

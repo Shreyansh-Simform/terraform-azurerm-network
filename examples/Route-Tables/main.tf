@@ -1,3 +1,10 @@
+# First, create a resource group (you can use the Resource-Group module or create manually)
+resource "azurerm_resource_group" "resource_group" {
+  name     = var.ResourceGroupName
+  location = var.ResourceGroupLocation
+}
+
+
 module "complete_network" {
   source = ".."
 
@@ -11,7 +18,7 @@ module "complete_network" {
           name                   = "Route-To-Internet-Via-Firewall"
           address_prefix         = "0.0.0.0/0"
           next_hop_type          = "VirtualAppliance"
-          next_hop_in_ip_address = "10.0.200.4"  # Firewall private IP
+          next_hop_in_ip_address = "10.0.200.4"  
         },
         {
           name                   = "Route-To-App-Tier"
@@ -29,7 +36,7 @@ module "complete_network" {
           name                   = "Route-To-Internet-Via-Firewall"
           address_prefix         = "0.0.0.0/0"
           next_hop_type          = "VirtualAppliance"
-          next_hop_in_ip_address = "10.0.200.4"  # Firewall private IP
+          next_hop_in_ip_address = "10.0.200.4" 
         },
         {
           name                   = "Route-To-DB-Tier"
@@ -76,7 +83,7 @@ module "complete_network" {
           name                   = "Route-To-Internet-Via-Firewall"
           address_prefix         = "0.0.0.0/0"
           next_hop_type          = "VirtualAppliance"
-          next_hop_in_ip_address = "10.0.200.4"  # Firewall private IP
+          next_hop_in_ip_address = "10.0.200.4"  
         }
       ]
     }

@@ -1,4 +1,10 @@
 
+ # First, create a resource group (you can use the Resource-Group module or create manually)
+resource "azurerm_resource_group" "resource_group" {
+  name     = var.ResourceGroupName
+  location = var.ResourceGroupLocation
+}
+ 
  module "complete_network" {
   source = ".."
 
@@ -11,7 +17,7 @@
       service_endpoints            = ["Microsoft.Storage", "Microsoft.KeyVault", "Microsoft.Sql"]
       network_security_group       = "web-tier-nsg"
       route_table                  = "web-tier-routes"
-      private_endpoint_network_policies = "Enabled"
+      private_endpoint_network_policies = "Disabled"
     }
 
     # Application Tier Subnet
@@ -20,7 +26,7 @@
       service_endpoints            = ["Microsoft.Storage", "Microsoft.Sql", "Microsoft.ServiceBus"]
       network_security_group       = "app-tier-nsg"
       route_table                  = "app-tier-routes"
-      private_endpoint_network_policies = "Enabled"
+      private_endpoint_network_policies = "Disabled"
     }
 
     # Database Tier Subnet
@@ -29,7 +35,7 @@
       service_endpoints            = ["Microsoft.Storage", "Microsoft.Sql"]
       network_security_group       = "db-tier-nsg"
       route_table                  = "db-tier-routes"
-      private_endpoint_network_policies = "Enabled"
+      private_endpoint_network_policies = "Disabled"
     }
 
     # DMZ Subnet for Load Balancers
@@ -47,7 +53,7 @@
       service_endpoints            = ["Microsoft.Storage", "Microsoft.KeyVault"]
       network_security_group       = "management-nsg"
       route_table                  = "management-routes"
-      private_endpoint_network_policies = "Enabled"
+      private_endpoint_network_policies = "Disabled"
     }
 
     # SQL Managed Instance Subnet with Delegation
