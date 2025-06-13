@@ -215,7 +215,7 @@ variable "public_ip_name" {
 variable "network_interfaces" {
   description = "Map of network interface configurations"
   type = map(object({
-    subnet_name                   = string           # Reference to subnet name
+    subnet_name                   = string        # Reference to subnet name
     private_ip_address_allocation = string           # Static or Dynamic
     private_ip_address           = optional(string)  # Required if allocation is Static
     public_ip_name               = optional(string)  # Reference to public IP name (optional)

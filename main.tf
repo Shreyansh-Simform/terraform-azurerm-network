@@ -386,7 +386,7 @@ resource "azurerm_network_interface" "mynic" {
  
   ip_configuration {
     name                          = "${each.key}-internal"
-    subnet_id                     = azurerm_subnet.mysubnet[each.value.subnet_name].id
+    subnet_id = azurerm_subnet.mysubnet[each.value.subnet_name].id
     private_ip_address_allocation = each.value.private_ip_address_allocation
     private_ip_address           = each.value.private_ip_address_allocation == "Static" ? each.value.private_ip_address : null
     public_ip_address_id         = each.value.public_ip_name != null ? azurerm_public_ip.my-pubip[each.value.public_ip_name].id : null
