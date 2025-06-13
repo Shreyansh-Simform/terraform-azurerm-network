@@ -17,7 +17,7 @@ output "virtual_network_address_space" {
 # DDoS Protection Outputs
 output "ddos_protection_plan_id" {
   description = "The ID of the DDoS protection plan (if created)"
-  value       = var.enable_ddos_protection && var.ddos_protection_plan_id == null ? azurerm_ddos_protection_plan.myddosplan[0].id : null
+  value       = var.enable_ddos_protection && var.ddos_protection_plan_id == null ? azurerm_ddos_protection_plan.myddosplan["main"].id : null
 }
 
 output "ddos_protection_enabled" {
@@ -28,63 +28,63 @@ output "ddos_protection_enabled" {
 # Bastion Outputs
 output "bastion_host_id" {
   description = "The ID of the Azure Bastion host"
-  value       = var.enable_azure_bastion ? azurerm_bastion_host.bastion[0].id : null
+  value       = var.enable_azure_bastion ? azurerm_bastion_host.bastion["main"].id : null
 }
 
 output "bastion_host_fqdn" {
   description = "The FQDN of the Azure Bastion host"
-  value       = var.enable_azure_bastion ? azurerm_bastion_host.bastion[0].dns_name : null
+  value       = var.enable_azure_bastion ? azurerm_bastion_host.bastion["main"].dns_name : null
 }
 
 output "bastion_public_ip_id" {
   description = "The ID of the Azure Bastion public IP"
-  value       = var.enable_azure_bastion ? azurerm_public_ip.bastion_pip[0].id : null
+  value       = var.enable_azure_bastion ? azurerm_public_ip.bastion_pip["main"].id : null
 }
 
 output "bastion_public_ip_address" {
   description = "The public IP address of the Azure Bastion"
-  value       = var.enable_azure_bastion ? azurerm_public_ip.bastion_pip[0].ip_address : null
+  value       = var.enable_azure_bastion ? azurerm_public_ip.bastion_pip["main"].ip_address : null
 }
 
 output "bastion_subnet_id" {
   description = "The ID of the Azure Bastion subnet"
-  value       = var.enable_azure_bastion ? azurerm_subnet.bastion_subnet[0].id : null
+  value       = var.enable_azure_bastion ? azurerm_subnet.bastion_subnet["main"].id : null
 }
 
 # Firewall Outputs
 output "firewall_id" {
   description = "The ID of the Azure Firewall"
-  value       = var.enable_azure_firewall ? azurerm_firewall.firewall[0].id : null
+  value       = var.enable_azure_firewall ? azurerm_firewall.firewall["main"].id : null
 }
 
 output "firewall_public_ip_id" {
   description = "The ID of the Azure Firewall public IP"
-  value       = var.enable_azure_firewall ? azurerm_public_ip.firewall_pip[0].id : null
+  value       = var.enable_azure_firewall ? azurerm_public_ip.firewall_pip["main"].id : null
 }
 
 output "firewall_public_ip_address" {
   description = "The public IP address of the Azure Firewall"
-  value       = var.enable_azure_firewall ? azurerm_public_ip.firewall_pip[0].ip_address : null
+  value       = var.enable_azure_firewall ? azurerm_public_ip.firewall_pip["main"].ip_address : null
 }
 
 output "firewall_management_ip_id" {
   description = "The ID of the Azure Firewall management public IP"
-  value       = var.enable_azure_firewall ? azurerm_public_ip.firewall_management_pip[0].id : null
+  value       = var.enable_azure_firewall ? azurerm_public_ip.firewall_management_pip["main"].id : null
 }
 
 output "firewall_management_ip_address" {
   description = "The management public IP address of the Azure Firewall"
-  value       = var.enable_azure_firewall ? azurerm_public_ip.firewall_management_pip[0].ip_address : null
+  value       = var.enable_azure_firewall ? azurerm_public_ip.firewall_management_pip["main"].ip_address : null
 }
 
 output "firewall_subnet_id" {
   description = "The ID of the Azure Firewall subnet"
-  value       = var.enable_azure_firewall ? azurerm_subnet.firewall_subnet[0].id : null
+  value       = var.enable_azure_firewall ? azurerm_subnet.firewall_subnet["main"].id : null
 }
 
 output "firewall_management_subnet_id" {
   description = "The ID of the Azure Firewall management subnet"
-  value       = var.enable_azure_firewall ? azurerm_subnet.management_subnet[0].id : null
+  value       = var.enable_azure_firewall ? azurerm_subnet.management_subnet["main"].id : null
 }
 
 # Subnet Outputs

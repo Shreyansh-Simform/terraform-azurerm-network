@@ -8,7 +8,7 @@ resource "azurerm_virtual_network" "myvnet" {
 
   # Enable DDoS protection conditionally
   ddos_protection_plan {
-    id     = var.enable_ddos_protection ? (var.ddos_protection_plan_id != null ? var.ddos_protection_plan_id : azurerm_ddos_protection_plan.myddosplan[0].id) : null
+    id     = var.enable_ddos_protection ? (var.ddos_protection_plan_id != null ? var.ddos_protection_plan_id : azurerm_ddos_protection_plan.myddosplan["main"].id) : null
     enable = var.enable_ddos_protection
   }
 
@@ -26,7 +26,7 @@ resource "azurerm_virtual_network" "myvnet" {
 
 #Azure DDoS Protection Plan Resource  
 resource "azurerm_ddos_protection_plan" "myddosplan" {
-  count               = var.enable_ddos_protection && var.ddos_protection_plan_id == null ? 1 : 0
+  for_each            = var.enable_ddos_protection && var.ddos_protection_plan_id == null ? { "main" = {} } : {}
   name                = "${var.virtual_network_name}-ddos-plan"
   location            = var.rg_location
   resource_group_name = var.rg_name
@@ -41,7 +41,7 @@ resource "azurerm_ddos_protection_plan" "myddosplan" {
 
 # Special subnet for Azure Bastion (must be named "AzureBastionSubnet")
 resource "azurerm_subnet" "bastion_subnet" {
-  count                = var.enable_azure_bastion ? 1 : 0
+  for_each             = var.enable_azure_bastion ? { "main" = {} } : {}
   name                 = "AzureBastionSubnet"  # This name is required by Azure
   resource_group_name  = var.rg_name
   virtual_network_name = azurerm_virtual_network.myvnet.name
@@ -61,7 +61,7 @@ resource "azurerm_subnet" "bastion_subnet" {
 
 # Special public IP for Azure Bastion
 resource "azurerm_public_ip" "bastion_pip" {
-  count               = var.enable_azure_bastion ? 1 : 0
+  for_each            = var.enable_azure_bastion ? { "main" = {} } : {}
   name                = "${var.azure_bastion_name}-pip"
   location            = var.rg_location
   resource_group_name = var.rg_name
@@ -76,7 +76,7 @@ resource "azurerm_public_ip" "bastion_pip" {
 
 #Azure Bastion Host Resource
 resource "azurerm_bastion_host" "bastion" {
-  count               = var.enable_azure_bastion ? 1 : 0
+  for_each            = var.enable_azure_bastion ? { "main" = {} } : {}
   name                = var.azure_bastion_name
   location            = var.rg_location
   resource_group_name = var.rg_name
@@ -85,8 +85,8 @@ resource "azurerm_bastion_host" "bastion" {
   
   ip_configuration {
     name                 = "bastion-ip-config"
-    subnet_id            = azurerm_subnet.bastion_subnet[0].id
-    public_ip_address_id = azurerm_public_ip.bastion_pip[0].id
+    subnet_id            = azurerm_subnet.bastion_subnet["main"].id
+    public_ip_address_id = azurerm_public_ip.bastion_pip["main"].id
   }
   
   tags = var.custom_tags
@@ -105,7 +105,7 @@ resource "azurerm_bastion_host" "bastion" {
 
 #Special subnet for Azure Firewall
 resource "azurerm_subnet" "firewall_subnet" {
-  count                 = var.enable_azure_firewall ? 1 : 0
+  for_each              = var.enable_azure_firewall ? { "main" = {} } : {}
   name                  = "AzureFirewallSubnet"
   resource_group_name   = var.rg_name
   virtual_network_name  = azurerm_virtual_network.myvnet.name
@@ -125,7 +125,7 @@ resource "azurerm_subnet" "firewall_subnet" {
  
 # Special subnet for Azure Firewall management
 resource "azurerm_subnet" "management_subnet" {
-  count                 = var.enable_azure_firewall ? 1 : 0
+  for_each              = var.enable_azure_firewall ? { "main" = {} } : {}
   name                  = "AzureFirewallManagementSubnet"
   resource_group_name   = var.rg_name
   virtual_network_name  = azurerm_virtual_network.myvnet.name
@@ -145,7 +145,7 @@ resource "azurerm_subnet" "management_subnet" {
  
 # Special public IP for Azure Firewall
 resource "azurerm_public_ip" "firewall_pip" {
-  count               = var.enable_azure_firewall ? 1 : 0
+  for_each            = var.enable_azure_firewall ? { "main" = {} } : {}
   name                = "${var.firewall_name}-pip"
   location            = var.rg_location
   resource_group_name = var.rg_name
@@ -161,7 +161,7 @@ resource "azurerm_public_ip" "firewall_pip" {
 
 # Separate public IP for management
 resource "azurerm_public_ip" "firewall_management_pip" {
-  count               = var.enable_azure_firewall ? 1 : 0
+  for_each            = var.enable_azure_firewall ? { "main" = {} } : {}
   name                = "${var.firewall_name}-mgmt-pip"
   location            = var.rg_location
   resource_group_name = var.rg_name
@@ -177,7 +177,7 @@ resource "azurerm_public_ip" "firewall_management_pip" {
  
 # Azure Firewall Resource
 resource "azurerm_firewall" "firewall" {
-  count                 = var.enable_azure_firewall ? 1 : 0
+  for_each              = var.enable_azure_firewall ? { "main" = {} } : {}
   name                  = var.firewall_name
   location              = var.rg_location
   resource_group_name   = var.rg_name
@@ -186,14 +186,14 @@ resource "azurerm_firewall" "firewall" {
  
   ip_configuration {
     name                 = "configuration"
-    subnet_id            = azurerm_subnet.firewall_subnet[0].id
-    public_ip_address_id = azurerm_public_ip.firewall_pip[0].id
+    subnet_id            = azurerm_subnet.firewall_subnet["main"].id
+    public_ip_address_id = azurerm_public_ip.firewall_pip["main"].id
   }
  
   management_ip_configuration {
     name                 = "management-ipconfig"
-    subnet_id            = azurerm_subnet.management_subnet[0].id
-    public_ip_address_id = azurerm_public_ip.firewall_management_pip[0].id
+    subnet_id            = azurerm_subnet.management_subnet["main"].id
+    public_ip_address_id = azurerm_public_ip.firewall_management_pip["main"].id
   }
   
   tags = var.custom_tags
@@ -238,6 +238,7 @@ resource "azurerm_subnet" "mysubnet" {
       }
     }
   }
+  
   service_endpoints = each.value.service_endpoints != null ? each.value.service_endpoints : []
   private_endpoint_network_policies = each.value.private_endpoint_network_policies != null ? each.value.private_endpoint_network_policies : "Disabled"
 

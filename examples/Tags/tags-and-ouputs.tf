@@ -41,10 +41,10 @@ output "network_summary" {
       firewall_management_ip = module.complete_network.firewall_management_ip_address
     }
     
-    subnet_count = length(module.complete_network.subnet_names)
-    nsg_count = length(module.complete_network.network_security_group_names)
-    route_table_count = length(module.complete_network.route_table_names)
-    public_ip_count = length(module.complete_network.public_ip_ids)
-    nic_count = length(module.complete_network.network_interface_ids)
+    subnet_instances = length(module.complete_network.subnet_names)
+    nsg_instances = length(module.complete_network.network_security_group_names)
+    route_table_instances = length(module.complete_network.route_table_names)
+    public_ip_instances = length(module.complete_network.public_ip_ids)
+    nic_instances = length(module.complete_network.network_interface_ids)
   }
 }

@@ -18,6 +18,7 @@ A comprehensive Terraform module for creating and managing Azure networking reso
 - **DDoS Protection**: Optional DDoS Network Protection with support for existing or new protection plans
 
 ### Advanced Features
+- **Conditional Resource Creation**: Uses `for_each` with boolean logic for optional security features
 - **Subnet Delegation**: Support for Azure service delegations (e.g., SQL Managed Instance, App Service)
 - **Service Endpoints**: Enable service endpoints for Azure services
 - **Private Endpoint Policies**: Configure private endpoint network policies
@@ -46,12 +47,29 @@ A comprehensive Terraform module for creating and managing Azure networking reso
 - `azurerm_route_table` - Route Tables
 - `azurerm_public_ip` - Public IP addresses
 - `azurerm_network_interface` - Network Interfaces
-- `azurerm_bastion_host` - Azure Bastion (optional)
-- `azurerm_firewall` - Azure Firewall (optional)
-- `azurerm_ddos_protection_plan` - DDoS Protection Plan (optional)
+- `azurerm_bastion_host` - Azure Bastion (conditional - created when enabled)
+- `azurerm_firewall` - Azure Firewall (conditional - created when enabled)
+- `azurerm_ddos_protection_plan` - DDoS Protection Plan (conditional - created when enabled)
 - Association resources for NSGs and Route Tables
 
 **Note**: All resources support custom tagging through the `custom_tags` variable.
+
+## Resource Creation Logic
+
+This module uses a simple `for_each` approach for conditional resource creation:
+
+- **Security Features**: When enabled (`true`), exactly **1 instance** is created using the `"main"` key
+- **When Disabled**: When disabled (`false`), **0 instances** are created (empty map)
+- **Resource References**: Conditional resources use the `["main"]` key for references
+
+Example internal logic:
+```hcl
+# Creates 1 Bastion instance when enabled, 0 when disabled
+for_each = var.enable_azure_bastion ? { "main" = {} } : {}
+
+# Resource reference
+subnet_id = azurerm_subnet.bastion_subnet["main"].id
+```
 
 ## Usage Examples
 
@@ -325,13 +343,13 @@ module "delegated_network" {
 |------|-------------|------|---------|
 | `custom_tags` | Custom tags to be applied to all resources | `map(string)` | `{}` |
 
-#### Security Features
+#### Security Features (Boolean Flags)
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
-| `enable_ddos_protection` | Enable Azure DDoS Network Protection | `bool` | `false` |
-| `ddos_protection_plan_id` | ID of existing DDoS protection plan | `string` | `null` |
-| `enable_azure_bastion` | Deploy Azure Bastion | `bool` | `false` |
-| `enable_azure_firewall` | Deploy Azure Firewall | `bool` | `false` |
+| `enable_ddos_protection` | Enable Azure DDoS Network Protection (creates 1 instance when true, 0 when false) | `bool` | `false` |
+| `ddos_protection_plan_id` | ID of existing DDoS protection plan (if using existing instead of creating new) | `string` | `null` |
+| `enable_azure_bastion` | Deploy Azure Bastion (creates 1 instance when true, 0 when false) | `bool` | `false` |
+| `enable_azure_firewall` | Deploy Azure Firewall (creates 1 instance when true, 0 when false) | `bool` | `false` |
 
 #### Bastion Configuration
 | Name | Description | Type | Default |
@@ -364,14 +382,14 @@ module "delegated_network" {
 - `virtual_network_id` - Virtual network ID
 - `virtual_network_address_space` - Virtual network address space
 
-### Security Features
-- `ddos_protection_plan_id` - DDoS protection plan ID
-- `ddos_protection_enabled` - DDoS protection status
-- `bastion_host_id` - Bastion host ID
-- `bastion_host_fqdn` - Bastion host FQDN
-- `bastion_public_ip_address` - Bastion public IP
-- `firewall_id` - Firewall ID
-- `firewall_public_ip_address` - Firewall public IP
+### Security Features (Conditional Outputs)
+- `ddos_protection_plan_id` - DDoS protection plan ID (null if not enabled)
+- `ddos_protection_enabled` - DDoS protection status (boolean)
+- `bastion_host_id` - Bastion host ID (null if not enabled)
+- `bastion_host_fqdn` - Bastion host FQDN (null if not enabled)
+- `bastion_public_ip_address` - Bastion public IP (null if not enabled)
+- `firewall_id` - Firewall ID (null if not enabled)
+- `firewall_public_ip_address` - Firewall public IP (null if not enabled)
 
 ### Network Components
 - `subnet_ids` - Map of subnet names to IDs
@@ -427,22 +445,33 @@ custom_tags = {
 
 ## Important Notes
 
+### Resource Creation Logic
+- **Security Features**: Use simple boolean flags (`enable_*`) to control resource creation
+- **Instance Count**: When enabled, exactly **1 instance** of each security feature is created
+- **Resource Keys**: Conditional resources use the `"main"` key internally for consistent references
+- **No Conflicts**: The `"main"` key is isolated to security features and won't conflict with user-defined resource names
+
 ### Special Subnets
 - **AzureBastionSubnet**: Automatically created when `enable_azure_bastion = true` (requires /27 or larger)
 - **AzureFirewallSubnet**: Automatically created when `enable_azure_firewall = true` (requires /26 or larger)
 - **AzureFirewallManagementSubnet**: Management subnet for Azure Firewall (requires /26 or larger)
 
 ### Validation Rules
-- Bastion name is required when Bastion is enabled
-- Firewall name is required when Firewall is enabled
+- Bastion name is required when `enable_azure_bastion = true`
+- Firewall name is required when `enable_azure_firewall = true`
 - Bastion scale units must be between 2-50 for Standard SKU
 - Subnet prefixes must be provided for enabled security features
 
 ### Resource Dependencies
 - NSG and Route Table associations are automatically created based on subnet configuration
 - Network interfaces reference subnets and public IPs by name
-- All resources are created in the specified resource group and location
+- All conditional security resources are created with proper dependencies
 - Custom tags are applied to all supported resources automatically
+
+### Output Behavior
+- **Enabled Features**: Outputs return actual resource values
+- **Disabled Features**: Outputs return `null` for disabled security features
+- **Always Available**: Core networking outputs (VNet, subnets) are always available
 
 ## Common Patterns
 

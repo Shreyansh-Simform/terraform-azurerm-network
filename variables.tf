@@ -1,4 +1,3 @@
-
 //Resource Group Name
 variable "rg_name"{
   description = "The name of the Azure Resource Group where the resources will be deployed."
