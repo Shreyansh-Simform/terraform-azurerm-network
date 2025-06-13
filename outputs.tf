@@ -17,7 +17,7 @@ output "virtual_network_address_space" {
 # DDoS Protection Outputs
 output "ddos_protection_plan_id" {
   description = "The ID of the DDoS protection plan (if created)"
-  value       = var.enable_ddos_protection && var.ddos_protection_plan_id == null ? azurerm_ddos_protection_plan.myddosplan["main"].id : null
+  value       = var.enable_ddos_protection && var.ddos_protection_plan_id == null ? azurerm_network_ddos_protection_plan.myddosplan["main"].id : null
 }
 
 output "ddos_protection_enabled" {

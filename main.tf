@@ -8,7 +8,7 @@ resource "azurerm_virtual_network" "myvnet" {
 
   # Enable DDoS protection conditionally
   ddos_protection_plan {
-    id     = var.enable_ddos_protection ? (var.ddos_protection_plan_id != null ? var.ddos_protection_plan_id : azurerm_ddos_protection_plan.myddosplan["main"].id) : null
+    id     = var.enable_ddos_protection ? (var.ddos_protection_plan_id != null ? var.ddos_protection_plan_id : azurerm_network_ddos_protection_plan.myddosplan["main"].id) : null
     enable = var.enable_ddos_protection
   }
 
@@ -25,7 +25,7 @@ resource "azurerm_virtual_network" "myvnet" {
 }
 
 #Azure DDoS Protection Plan Resource  
-resource "azurerm_ddos_protection_plan" "myddosplan" {
+resource "azurerm_network_ddos_protection_plan" "myddosplan" {
   for_each            = var.enable_ddos_protection && var.ddos_protection_plan_id == null ? { "main" = {} } : {}
   name                = "${var.virtual_network_name}-ddos-plan"
   location            = var.rg_location
