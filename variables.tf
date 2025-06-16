@@ -23,8 +23,9 @@ variable "address_space" {
 
 //DNS Server list of the Virtual Network
 variable "dns_servers" {
-  description = "The DNS servers for this Virtual Network."
+  description = "The DNS servers for this Virtual Network. Leave empty [] to use Azure default DNS."
   type        = list(string)
+  default     = []  # Make DNS servers optional
 }
 
 /*
@@ -41,17 +42,13 @@ variable "enable_azure_bastion" {
 }
 
 variable "azure_bastion_name" {
-  description = "Name of the Azure Bastion resource."
+  description = "Name of the Azure Bastion resource. Only required when enable_azure_bastion is true."
   type        = string
   default     = null
-  validation {
-    condition     = var.enable_azure_bastion == false || (var.enable_azure_bastion == true && var.azure_bastion_name != null && var.azure_bastion_name != "")
-    error_message = "azure_bastion_name is required when enable_azure_bastion is true."
-  }
 }
 
 variable "bastion_subnet_prefix" {
-  description = "The address prefix for the Azure Bastion subnet (must be /27 or larger)"
+  description = "The address prefix for the Azure Bastion subnet (must be /27 or larger). Only required when enable_azure_bastion is true."
   type        = string
   default     = null
 }
@@ -90,23 +87,19 @@ variable "enable_azure_firewall" {
 }
 
 variable "firewall_name" {
-  description = "Name of the Azure Firewall resource."
+  description = "Name of the Azure Firewall resource. Only required when enable_azure_firewall is true."
   type        = string
   default     = null
-  validation {
-    condition     = var.enable_azure_firewall == false || (var.enable_azure_firewall == true && var.firewall_name != null && var.firewall_name != "")
-    error_message = "firewall_name is required when enable_azure_firewall is true."
-  }
 }
  
 variable "firewall_subnet_address" {
-  description = "The address prefix for the Azure Firewall subnet (must be /26 or larger)"
+  description = "The address prefix for the Azure Firewall subnet (must be /26 or larger). Only required when enable_azure_firewall is true."
   type        = string
   default     = null
 }
  
 variable "management_subnet_address" {
-  description = "The address prefix for the management subnet (must be /26 or larger)"
+  description = "The address prefix for the management subnet (must be /26 or larger). Only required when enable_azure_firewall is true."
   type        = string
   default     = null
 }
@@ -148,7 +141,7 @@ variable "ddos_protection_plan_id" {
 
 //Configuration block for defining multiple subnets with different configurations
 variable "subnets" {
-  description = "Map of subnet configurations"
+  description = "Map of subnet configurations. Leave empty {} to create VNet only."
   type = map(object({
     address_prefixes = list(string)
     delegation = optional(object({
@@ -164,11 +157,12 @@ variable "subnets" {
     network_security_group = optional(string) # NSG name reference for association
     private_endpoint_network_policies = optional(string) # Accepted values are Disabled, Network Security Group, or Route Tables
   }))
+  default = {}  # Make it optional with empty default
 }
 
 //Configuration block for defining multiple route tables with different configurations
 variable "route_tables" {
-  description = "Map of route table configurations"
+  description = "Map of route table configurations. Leave empty {} if not needed."
   type = map(object({
     disable_bgp_route_propagation = optional(bool, false)
     routes = optional(list(object({
@@ -183,7 +177,7 @@ variable "route_tables" {
 
 //Configuration block for defining multiple network security groups with security rules
 variable "network_security_groups" {
-  description = "Map of network security group configurations"
+  description = "Map of network security group configurations. Leave empty {} if not needed."
   type = map(object({
     security_rules = optional(list(object({
       name                       = string
@@ -202,18 +196,18 @@ variable "network_security_groups" {
 
 //Configuration block for defining multiple public IPs
 variable "public_ip_name" {
-  description = "Map of public IP configurations where key is the IP name"
+  description = "Map of public IP configurations where key is the IP name. Leave empty {} if not needed."
   type = map(object({
     allocation_method = string  # Static or Dynamic
     sku              = optional(string, "Basic")  # Basic or Standard
     ip_version     = optional(string, "IPv4")  # IPv4 or IPv6
   }))
- 
+  default = {}  # Make it optional with empty default
 }
 
 //Configuration block for defining multiple network interfaces
 variable "network_interfaces" {
-  description = "Map of network interface configurations"
+  description = "Map of network interface configurations. Leave empty {} if not needed."
   type = map(object({
     subnet_name                   = string        # Reference to subnet name
     private_ip_address_allocation = string           # Static or Dynamic
@@ -222,7 +216,7 @@ variable "network_interfaces" {
     enable_ip_forwarding         = optional(bool, false)
     enable_accelerated_networking = optional(bool, false)
   }))
-
+  default = {}  # Make it optional with empty default
 }
 
 variable "custom_tags" {
@@ -230,3 +224,4 @@ variable "custom_tags" {
   type        = map(string)
   default     = {}
 }
+

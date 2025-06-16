@@ -4,19 +4,22 @@ resource "azurerm_virtual_network" "myvnet" {
   location            = var.rg_location
   resource_group_name = var.rg_name
   address_space       = var.address_space
-  dns_servers         = var.dns_servers
+  dns_servers         = length(var.dns_servers) > 0 ? var.dns_servers : null
 
   # Enable DDoS protection conditionally
-  ddos_protection_plan {
-    id     = var.enable_ddos_protection ? (var.ddos_protection_plan_id != null ? var.ddos_protection_plan_id : azurerm_network_ddos_protection_plan.myddosplan["main"].id) : null
-    enable = var.enable_ddos_protection
+  dynamic "ddos_protection_plan" {
+    for_each = var.enable_ddos_protection ? [1] : []
+    content {
+      id     = var.ddos_protection_plan_id != null ? var.ddos_protection_plan_id : azurerm_network_ddos_protection_plan.myddosplan["main"].id
+      enable = var.enable_ddos_protection
+    }
   }
 
   tags = var.custom_tags
 
   # Prevent accidental deletion of the VNet
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = true  # Managed centrally via locals.tf
     ignore_changes = [
       tags["Created"],
       tags["LastModified"]
@@ -33,7 +36,7 @@ resource "azurerm_network_ddos_protection_plan" "myddosplan" {
   
   # Prevent accidental deletion
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = true  # Managed centrally via locals.tf
   }
 }
 
@@ -50,10 +53,10 @@ resource "azurerm_subnet" "bastion_subnet" {
   # Add validation and dependency management
   lifecycle {
     precondition {
-      condition     = !var.enable_azure_bastion || var.bastion_subnet_prefix != null
+      condition     = !var.enable_azure_bastion || (var.bastion_subnet_prefix != null && var.bastion_subnet_prefix != "")
       error_message = "bastion_subnet_prefix must be provided when enable_azure_bastion is true."
     }
-    prevent_destroy = true
+    prevent_destroy = true  # Managed centrally via locals.tf
   }
 
   depends_on = [azurerm_virtual_network.myvnet]
@@ -70,7 +73,11 @@ resource "azurerm_public_ip" "bastion_pip" {
   zones               = var.bastion_availability_zones
   
   lifecycle {
-    prevent_destroy = true
+    precondition {
+      condition     = !var.enable_azure_bastion || (var.azure_bastion_name != null && var.azure_bastion_name != "")
+      error_message = "azure_bastion_name must be provided when enable_azure_bastion is true."
+    }
+    prevent_destroy = true  # Managed centrally via locals.tf
   }
 }
 
@@ -92,7 +99,11 @@ resource "azurerm_bastion_host" "bastion" {
   tags = var.custom_tags
   
   lifecycle {
-    prevent_destroy = true
+    precondition {
+      condition     = !var.enable_azure_bastion || (var.azure_bastion_name != null && var.azure_bastion_name != "")
+      error_message = "azure_bastion_name must be provided when enable_azure_bastion is true."
+    }
+    prevent_destroy = true  # Managed centrally via locals.tf
   }
 
   depends_on = [
@@ -117,7 +128,7 @@ resource "azurerm_subnet" "firewall_subnet" {
       condition     = !var.enable_azure_firewall || var.firewall_subnet_address != null
       error_message = "firewall_subnet_address must be provided when enable_azure_firewall is true."
     }
-    prevent_destroy = true
+    prevent_destroy = true  # Managed centrally via locals.tf
   }
 
   depends_on = [azurerm_virtual_network.myvnet]
@@ -137,7 +148,7 @@ resource "azurerm_subnet" "management_subnet" {
       condition     = !var.enable_azure_firewall || var.management_subnet_address != null
       error_message = "management_subnet_address must be provided when enable_azure_firewall is true."
     }
-    prevent_destroy = true
+    prevent_destroy = true  # Managed centrally via locals.tf
   }
 
   depends_on = [azurerm_virtual_network.myvnet]
@@ -155,7 +166,11 @@ resource "azurerm_public_ip" "firewall_pip" {
   tags = var.custom_tags
 
   lifecycle {
-    prevent_destroy = true
+    precondition {
+      condition     = !var.enable_azure_firewall || (var.firewall_name != null && var.firewall_name != "")
+      error_message = "firewall_name must be provided when enable_azure_firewall is true."
+    }
+    prevent_destroy = true  # Managed centrally via locals.tf
   }
 }
 
@@ -171,7 +186,11 @@ resource "azurerm_public_ip" "firewall_management_pip" {
   tags = var.custom_tags
 
   lifecycle {
-    prevent_destroy = true
+    precondition {
+      condition     = !var.enable_azure_firewall || (var.firewall_name != null && var.firewall_name != "")
+      error_message = "firewall_name must be provided when enable_azure_firewall is true."
+    }
+    prevent_destroy = true  # Managed centrally via locals.tf
   }
 }
  
@@ -197,9 +216,12 @@ resource "azurerm_firewall" "firewall" {
   }
   
   tags = var.custom_tags
-
   lifecycle {
-    prevent_destroy = true
+    precondition {
+      condition     = !var.enable_azure_firewall || (var.firewall_name != null && var.firewall_name != "")
+      error_message = "firewall_name must be provided when enable_azure_firewall is true."
+    }
+    prevent_destroy = true  # Managed centrally via locals.tf
   }
 
   depends_on = [
@@ -244,7 +266,7 @@ resource "azurerm_subnet" "mysubnet" {
 
   # Prevent accidental deletion and ensure proper dependencies
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = true  # Managed centrally via locals.tf
     create_before_destroy = false
     ignore_changes = [
       # Ignore changes to service endpoints if they're managed externally
@@ -274,9 +296,8 @@ resource "azurerm_route_table" "network-route-table" {
   }
 
   tags = var.custom_tags
-
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = true  # Managed centrally via locals.tf
     create_before_destroy = false
   }
 }  
@@ -349,7 +370,7 @@ resource "azurerm_network_security_group" "network-nsg" {
   tags = var.custom_tags
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = true  # Managed centrally via locals.tf khal
     create_before_destroy = false
   }
 }
@@ -369,7 +390,7 @@ resource "azurerm_public_ip" "my-pubip" {
   tags = var.custom_tags
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = true  # Managed centrally via locals.tf
     create_before_destroy = false
   }
 }
@@ -395,7 +416,7 @@ resource "azurerm_network_interface" "mynic" {
   tags = var.custom_tags
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = true  # Managed centrally via locals.tf
     create_before_destroy = false
     ignore_changes = [
       # Ignore IP address changes for dynamic allocation
