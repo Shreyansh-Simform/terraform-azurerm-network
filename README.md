@@ -1,6 +1,6 @@
 # Azure Network Module
 
-A comprehensive Terraform module for creating and managing Azure networking resources including Virtual Networks, Subnets, Security Groups, Firewall, Bastion, and associated components with comprehensive tagging support.
+A comprehensive Terraform module for creating and managing Azure networking resources including Virtual Networks, Subnets, Security Groups, Route Tables, Firewall, Bastion, and associated components with comprehensive tagging support and lifecycle management.
 
 ## Features
 
@@ -9,12 +9,12 @@ A comprehensive Terraform module for creating and managing Azure networking reso
 - **Subnets**: Define multiple subnets with flexible configurations including delegations and service endpoints
 - **Network Security Groups (NSGs)**: Create and manage security rules with automatic subnet associations
 - **Route Tables**: Define custom routing with BGP propagation control and automatic subnet associations
-- **Network Interfaces**: Create network interfaces with public/private IP configurations
+- **Network Interfaces**: Create network interfaces with public/private IP configurations and advanced networking features
 - **Public IPs**: Manage public IP addresses with different SKUs and allocation methods
 
 ### Security Features
-- **Azure Bastion**: Optional secure RDP/SSH access without exposing VMs to the internet
-- **Azure Firewall**: Optional network-level firewall with management subnet support
+- **Azure Bastion**: Optional secure RDP/SSH access without exposing VMs to the internet with Standard/Basic SKU support
+- **Azure Firewall**: Optional network-level firewall with management subnet and dedicated public IPs
 - **DDoS Protection**: Optional DDoS Network Protection with support for existing or new protection plans
 
 ### Advanced Features
@@ -24,6 +24,7 @@ A comprehensive Terraform module for creating and managing Azure networking reso
 - **Private Endpoint Policies**: Configure private endpoint network policies
 - **IP Forwarding**: Enable IP forwarding on network interfaces
 - **Accelerated Networking**: Support for accelerated networking on NICs
+- **Lifecycle Management**: Built-in protection against accidental resource deletion
 - **Comprehensive Tagging**: Apply custom tags to all supported resources for governance and cost management
 
 ## Requirements
@@ -41,18 +42,18 @@ A comprehensive Terraform module for creating and managing Azure networking reso
 
 ## Resources Created
 
-- `azurerm_virtual_network` - Virtual Network
-- `azurerm_subnet` - Subnets (including special subnets for Bastion and Firewall)
-- `azurerm_network_security_group` - Network Security Groups
-- `azurerm_route_table` - Route Tables
-- `azurerm_public_ip` - Public IP addresses
-- `azurerm_network_interface` - Network Interfaces
+- `azurerm_virtual_network` - Virtual Network with optional DDoS protection
+- `azurerm_subnet` - Regular subnets plus special subnets (Bastion, Firewall, Management)
+- `azurerm_network_security_group` - Network Security Groups with custom rules
+- `azurerm_route_table` - Route Tables with custom routes
+- `azurerm_public_ip` - Public IP addresses (including Bastion and Firewall IPs)
+- `azurerm_network_interface` - Network Interfaces with advanced features
 - `azurerm_bastion_host` - Azure Bastion (conditional - created when enabled)
 - `azurerm_firewall` - Azure Firewall (conditional - created when enabled)
-- `azurerm_ddos_protection_plan` - DDoS Protection Plan (conditional - created when enabled)
-- Association resources for NSGs and Route Tables
+- `azurerm_network_ddos_protection_plan` - DDoS Protection Plan (conditional - created when enabled)
+- Association resources for NSGs and Route Tables with automatic subnet linking
 
-**Note**: All resources support custom tagging through the `custom_tags` variable.
+**Note**: All resources support custom tagging through the `custom_tags` variable and include lifecycle management rules.
 
 ## Resource Creation Logic
 
@@ -61,6 +62,7 @@ This module uses a simple `for_each` approach for conditional resource creation:
 - **Security Features**: When enabled (`true`), exactly **1 instance** is created using the `"main"` key
 - **When Disabled**: When disabled (`false`), **0 instances** are created (empty map)
 - **Resource References**: Conditional resources use the `["main"]` key for references
+- **Lifecycle Protection**: All resources include `prevent_destroy = true` for production safety
 
 Example internal logic:
 ```hcl
@@ -84,7 +86,7 @@ module "network" {
   rg_location          = "East US"
   virtual_network_name = "my-vnet"
   address_space        = ["10.0.0.0/16"]
-  dns_servers          = ["8.8.8.8", "8.8.4.4"]
+  dns_servers          = ["8.8.8.8", "8.8.4.4"]  # Optional - defaults to []
 
   # Subnets Configuration
   subnets = {
@@ -117,7 +119,7 @@ module "network" {
 }
 ```
 
-### Complete Network with Security Features and Tags
+### Complete Network with Security Features and Advanced Configuration
 
 ```hcl
 module "secure_network" {
@@ -135,17 +137,19 @@ module "secure_network" {
   enable_azure_bastion   = true
   enable_azure_firewall  = true
 
-  # Bastion Configuration
+  # Bastion Configuration (required when enable_azure_bastion = true)
   azure_bastion_name       = "my-bastion"
   bastion_subnet_prefix    = "10.0.100.0/27"
   bastion_sku             = "Standard"
   bastion_scale_units     = 2
+  bastion_availability_zones = ["1", "2", "3"]
 
-  # Firewall Configuration
+  # Firewall Configuration (required when enable_azure_firewall = true)
   firewall_name               = "my-firewall"
   firewall_subnet_address     = "10.0.200.0/26"
   management_subnet_address   = "10.0.201.0/26"
   firewall_sku               = "Standard"
+  firewall_sku_name          = "AZFW_VNet"
 
   # Subnets with NSG and Route Table associations
   subnets = {
@@ -159,6 +163,7 @@ module "secure_network" {
       address_prefixes       = ["10.0.2.0/24"]
       network_security_group = "app-nsg"
       route_table           = "app-routes"
+      private_endpoint_network_policies = "Enabled"
     }
   }
 
@@ -235,7 +240,7 @@ module "secure_network" {
     }
   }
 
-  # Network Interfaces
+  # Network Interfaces with Advanced Features
   network_interfaces = {
     "web-nic" = {
       subnet_name                   = "web-subnet"
@@ -264,7 +269,7 @@ module "secure_network" {
     BackupPolicy   = "Daily"
     MaintenanceWindow = "Sunday-2AM-4AM"
     CreatedBy      = "Terraform"
-    LastModified   = "2025-06-12"
+    LastModified   = "2025-06-16"
     Department     = "DevOps"
     Application    = "WebApp"
     DataClassification = "Internal"
@@ -284,7 +289,7 @@ module "delegated_network" {
   rg_location          = "East US"
   virtual_network_name = "delegation-vnet"
   address_space        = ["10.0.0.0/16"]
-  dns_servers          = []
+  dns_servers          = []  # Use Azure default DNS
 
   # Subnet with SQL Managed Instance delegation
   subnets = {
@@ -293,7 +298,7 @@ module "delegated_network" {
       delegation = {
         name = "sql-mi-delegation"
         service_delegation = {
-          name = "Microsoft.Sql/managedInstances"
+          name    = "Microsoft.Sql/managedInstances"
           actions = [
             "Microsoft.Network/virtualNetworks/subnets/join/action",
             "Microsoft.Network/virtualNetworks/subnets/prepareNetworkPolicies/action",
@@ -327,23 +332,62 @@ module "delegated_network" {
 
 | Name | Description | Type |
 |------|-------------|------|
-| `rg_name` | The name of the Azure Resource Group | `string` |
+| `rg_name` | The name of the Azure Resource Group where resources will be deployed | `string` |
 | `rg_location` | The Azure region where resources will be deployed | `string` |
 | `virtual_network_name` | The name of the Azure Virtual Network | `string` |
 | `address_space` | The address space for the Virtual Network | `list(string)` |
-| `dns_servers` | The DNS servers for the Virtual Network | `list(string)` |
-| `subnets` | Map of subnet configurations | `map(object)` |
-| `public_ip_name` | Map of public IP configurations | `map(object)` |
-| `network_interfaces` | Map of network interface configurations | `map(object)` |
 
-### Optional Variables
+### Optional Core Variables
 
-#### Tagging
+| Name | Description | Type | Default |
+|------|-------------|------|---------|
+| `dns_servers` | The DNS servers for this Virtual Network. Leave empty [] to use Azure default DNS | `list(string)` | `[]` |
+| `subnets` | Map of subnet configurations. Leave empty {} to create VNet only | `map(object)` | `{}` |
+| `public_ip_name` | Map of public IP configurations where key is the IP name. Leave empty {} if not needed | `map(object)` | `{}` |
+| `network_interfaces` | Map of network interface configurations. Leave empty {} if not needed | `map(object)` | `{}` |
+| `route_tables` | Map of route table configurations. Leave empty {} if not needed | `map(object)` | `{}` |
+| `network_security_groups` | Map of network security group configurations. Leave empty {} if not needed | `map(object)` | `{}` |
+
+### Subnet Configuration Object
+```hcl
+subnets = {
+  "subnet-name" = {
+    address_prefixes = list(string)                    # Required
+    delegation = optional(object({                     # Optional
+      name = string
+      service_delegation = object({
+        name    = string
+        actions = list(string)
+      })
+    }))
+    service_endpoints = optional(list(string))         # Optional
+    route_table = optional(string)                     # Optional - reference to route table name
+    network_security_group = optional(string)          # Optional - reference to NSG name
+    private_endpoint_network_policies = optional(string) # Optional - "Disabled", "Network Security Group", or "Route Tables"
+  }
+}
+```
+
+### Network Interface Configuration Object
+```hcl
+network_interfaces = {
+  "nic-name" = {
+    subnet_name                   = string              # Required - reference to subnet name
+    private_ip_address_allocation = string              # Required - "Static" or "Dynamic"
+    private_ip_address           = optional(string)     # Required if allocation is "Static"
+    public_ip_name               = optional(string)     # Optional - reference to public IP name
+    enable_ip_forwarding         = optional(bool)       # Optional - defaults to false
+    enable_accelerated_networking = optional(bool)      # Optional - defaults to false
+  }
+}
+```
+
+### Tagging
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
 | `custom_tags` | Custom tags to be applied to all resources | `map(string)` | `{}` |
 
-#### Security Features (Boolean Flags)
+### Security Features (Boolean Flags)
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
 | `enable_ddos_protection` | Enable Azure DDoS Network Protection (creates 1 instance when true, 0 when false) | `bool` | `false` |
@@ -351,7 +395,7 @@ module "delegated_network" {
 | `enable_azure_bastion` | Deploy Azure Bastion (creates 1 instance when true, 0 when false) | `bool` | `false` |
 | `enable_azure_firewall` | Deploy Azure Firewall (creates 1 instance when true, 0 when false) | `bool` | `false` |
 
-#### Bastion Configuration
+### Bastion Configuration (Required when `enable_azure_bastion = true`)
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
 | `azure_bastion_name` | Name of the Azure Bastion resource | `string` | `null` |
@@ -360,20 +404,14 @@ module "delegated_network" {
 | `bastion_scale_units` | Scale units for Standard SKU (2-50) | `number` | `2` |
 | `bastion_availability_zones` | Availability zones for Bastion public IP | `list(string)` | `["1", "2", "3"]` |
 
-#### Firewall Configuration
+### Firewall Configuration (Required when `enable_azure_firewall = true`)
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
 | `firewall_name` | Name of the Azure Firewall resource | `string` | `null` |
 | `firewall_subnet_address` | Address prefix for Firewall subnet (min /26) | `string` | `null` |
 | `management_subnet_address` | Address prefix for management subnet (min /26) | `string` | `null` |
-| `firewall_sku` | Firewall SKU Tier | `string` | `"Standard"` |
-| `firewall_sku_name` | Firewall SKU Name | `string` | `"AZFW_VNet"` |
-
-#### Optional Resource Maps
-| Name | Description | Type | Default |
-|------|-------------|------|---------|
-| `route_tables` | Map of route table configurations | `map(object)` | `{}` |
-| `network_security_groups` | Map of NSG configurations | `map(object)` | `{}` |
+| `firewall_sku` | Firewall SKU Tier (Basic, Standard, Premium) | `string` | `"Standard"` |
+| `firewall_sku_name` | Firewall SKU Name (AZFW_VNet, AZFW_Hub) | `string` | `"AZFW_VNet"` |
 
 ## Outputs
 
@@ -387,19 +425,36 @@ module "delegated_network" {
 - `ddos_protection_enabled` - DDoS protection status (boolean)
 - `bastion_host_id` - Bastion host ID (null if not enabled)
 - `bastion_host_fqdn` - Bastion host FQDN (null if not enabled)
+- `bastion_public_ip_id` - Bastion public IP ID (null if not enabled)
 - `bastion_public_ip_address` - Bastion public IP (null if not enabled)
+- `bastion_subnet_id` - Bastion subnet ID (null if not enabled)
 - `firewall_id` - Firewall ID (null if not enabled)
+- `firewall_public_ip_id` - Firewall public IP ID (null if not enabled)
 - `firewall_public_ip_address` - Firewall public IP (null if not enabled)
+- `firewall_management_ip_id` - Firewall management IP ID (null if not enabled)
+- `firewall_management_ip_address` - Firewall management IP (null if not enabled)
+- `firewall_subnet_id` - Firewall subnet ID (null if not enabled)
+- `firewall_management_subnet_id` - Firewall management subnet ID (null if not enabled)
 
 ### Network Components
 - `subnet_ids` - Map of subnet names to IDs
 - `subnet_names` - List of subnet names
-- `subnets_details` - Complete subnet information
+- `subnet_address_prefixes` - Map of subnet names to address prefixes
+- `subnets_details` - Complete subnet information including service endpoints and policies
 - `route_table_ids` - Map of route table names to IDs
+- `route_table_names` - List of route table names
+- `route_tables_details` - Complete route table information including routes
+- `route_table_associations` - Map of subnet-route table associations
 - `network_security_group_ids` - Map of NSG names to IDs
+- `network_security_group_names` - List of NSG names
+- `nsg_subnet_associations` - Map of subnet-NSG associations
 - `public_ip_ids` - Map of public IP names to IDs
+- `public_ip_addresses` - Map of public IP names to IP addresses
+- `public_ip_details` - Complete public IP information
 - `network_interface_ids` - Map of NIC names to IDs
-- `network_summary` - Complete network configuration summary
+- `network_interface_private_ips` - Map of NIC names to private IPs
+- `network_interfaces_details` - Complete network interface information
+- `network_summary` - Complete network configuration summary with counts
 
 ## Tagging Strategy
 
@@ -412,7 +467,7 @@ The following resources support custom tagging through the `custom_tags` variabl
 - Network Security Groups
 - Network Interfaces
 - Public IP Addresses
-- DDoS Protection Plan
+- DDoS Protection Plan (when created)
 
 ### Tagging Best Practices
 ```hcl
@@ -436,7 +491,7 @@ custom_tags = {
   
   # Automation Tags
   CreatedBy    = "Terraform"
-  LastModified = "2025-06-12"
+  LastModified = "2025-06-16"
 }
 ```
 
@@ -451,6 +506,11 @@ custom_tags = {
 - **Resource Keys**: Conditional resources use the `"main"` key internally for consistent references
 - **No Conflicts**: The `"main"` key is isolated to security features and won't conflict with user-defined resource names
 
+### Lifecycle Management
+- **Prevent Destroy**: All resources include `prevent_destroy = true` for production safety
+- **Dependency Management**: Proper dependency chains ensure correct resource creation order
+- **Ignore Changes**: Certain dynamic attributes are ignored in lifecycle rules
+
 ### Special Subnets
 - **AzureBastionSubnet**: Automatically created when `enable_azure_bastion = true` (requires /27 or larger)
 - **AzureFirewallSubnet**: Automatically created when `enable_azure_firewall = true` (requires /26 or larger)
@@ -461,6 +521,8 @@ custom_tags = {
 - Firewall name is required when `enable_azure_firewall = true`
 - Bastion scale units must be between 2-50 for Standard SKU
 - Subnet prefixes must be provided for enabled security features
+- Firewall SKU must be Basic, Standard, or Premium
+- Bastion SKU must be Basic or Standard
 
 ### Resource Dependencies
 - NSG and Route Table associations are automatically created based on subnet configuration
@@ -483,6 +545,20 @@ Configure separate subnets for web, application, and database tiers with appropr
 
 ### Delegated Subnets
 Create subnets with service delegations for Azure PaaS services like SQL Managed Instance, App Service, etc.
+
+### Advanced Networking
+Enable accelerated networking and IP forwarding for high-performance workloads and network virtual appliances.
+
+## Troubleshooting
+
+### Common Issues
+1. **Bastion Deployment Fails**: Ensure `bastion_subnet_prefix` is /27 or larger
+2. **Firewall Deployment Fails**: Ensure firewall subnet is /26 or larger
+3. **NIC Association Fails**: Verify subnet and public IP names exist in the configuration
+4. **Route Table Association Fails**: Ensure route table name matches exactly in subnet configuration
+
+### Validation
+The module includes extensive validation rules to catch configuration errors early in the planning phase.
 
 ## License
 
